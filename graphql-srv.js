@@ -1,9 +1,7 @@
 
-const {contentType, errors} = require('./utils')
 const graphql = require('graphql')
-
-const util = require('util')
-// console.log(util.inspect('', false, 33, true))
+const { PassThrough } = require('stream')
+const {contentType, errors} = require('./utils')
 
 const schema = `
     type Query {
@@ -18,27 +16,28 @@ const resolver = {
 const options = {
     schema: graphql.buildSchema(schema),
     rootValue: resolver,
-    context: ''
+    context: {}
 }
 
-module.exports = async data => {
+module.exports = async reqData => {
 
-    const { urn, method, headers, reqStream, resStream } = data
-    if (reqStream === undefined || resStream === undefined) errors(500, `graphql-srv reqStream:${typeof reqStream}, resStream:${typeof resStream}`)
+    const {urn, method, headers, urlParam, reqStream} = reqData
 
-    const typeInfo = contentType(headers['content-type'])
-    if(!['application/json', 'application/graphql'].includes(typeInfo.type)) errors(415, `Unsupported Media Type "${typeInfo.type}"`)
-    if(!['utf8', 'utf16le'].includes(typeInfo.charset)) errors(415, `Unsupported Media Type Charset "${typeInfo.charset}". Only 'utf-8', 'utf-16'`)
+    const typeInfo = (_o = contentType(headers['content-type'])).type === undefined ? { ..._o, type: 'application/json' } : _o
+    if (!['application/json', 'application/graphql'].includes(typeInfo.type)) errors(415, `Unsupported Media Type "${typeInfo.type}"`)
+    if (!['utf8', 'utf16le'].includes(typeInfo.charset)) errors(415, `Unsupported Media Type Charset "${typeInfo.charset}". Only 'utf-8', 'utf-16'`)
     // https://datatracker.ietf.org/doc/html/rfc7159#section-8.1
     // https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings
 
-    const _b = []
-    for await (const _c of reqStream) _b.push(_c)
-    const _e = await Buffer.concat(_b).toString(typeInfo.charset)
-    const _req = JSON.parse(_e, (k, v) => {
-        if (k === '') return v
-        return v === '{}' ? {} : v
-    })
+    let _req
+    if (['GET'].includes(method)) {
+        _req = (_u = urlParam).variables === '{}' ? { ..._u, variables: {}} : _u
+    } else {
+        const _b = []
+        for await (const _c of reqStream) _b.push(_c)
+        const _e = await Buffer.concat(_b).toString(typeInfo.charset)
+        _req = JSON.parse(_e)
+    }
 
     const { query, variables, operationName } = _req
 
@@ -52,7 +51,7 @@ module.exports = async data => {
         errors(500, 'GraphQL validation error', schemaValidationErrors)
     }
 
-    // Parse source to AST, reporting any syntax error.
+    // Parse source to AST, reporting any syntax error
     const documentAST = graphql.parse(new graphql.Source(query, 'GraphQL request'))
 
     //Only query operations are allowed on GET requests.
@@ -63,7 +62,7 @@ module.exports = async data => {
         }
     }
 
-    // Validate AST, reporting any errors.
+    // Validate AST, reporting any errors
     const validationErrors = graphql.validate(schema, documentAST, [
         ...graphql.specifiedRules,
     ])
@@ -71,7 +70,7 @@ module.exports = async data => {
         errors(500, 'GraphQL validation error', validationErrors)
     }
 
-    // Perform the execution, reporting any errors creating the context.
+    // Perform the execution, reporting any errors creating the context
     let result
     try {
         result = await graphql.execute({
@@ -89,16 +88,18 @@ module.exports = async data => {
         errors(500, 'GraphQL execution context error', contextError)
     }
 
-    let _o
-    const formattedResult = {
-        ...result,
-        // errors: (_o = result.errors) === null || _o === void 0 ? void 0 : _o.map(graphql.formatError),
+    // if (errorAcc.length) result.errors = errorAcc // TODO: formatted errors
+
+    const code = 200
+
+    return {
+        code,
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        resStream: new PassThrough().end(Buffer.from(JSON.stringify(result), typeInfo.charset))
     }
 
-    // console.log(util.inspect(formattedResult, false, 33, true))
-
-
-    resStream.write(Buffer.from(JSON.stringify(formattedResult), typeInfo.charset))
-    resStream.end()
+    // '{"data":{"ping":' + new Date().getMilliseconds() + '}}'
 
 }

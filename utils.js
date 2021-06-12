@@ -1,28 +1,28 @@
 
 const zlib = require('zlib')
-const { Readable } = require('stream')
-const { pipeline } = require('stream/promises')
-const { STATUS_CODES } = require('_http_server')
+const { STATUS_CODES } = require('http')
 
+// globalThis.errorAcc = []
 errors = (code, msg, error) => {
     console.log(`${code}: ${STATUS_CODES[code]}`)
-    console.log(`\n === ${msg} === \n`, error ? error : '')
-}
+    console.log(`=== ${msg} ===`)
+    console.log(error ? error : '')
 
+    // errorAcc.push({ code: code, srv_message: STATUS_CODES[code], message: msg })
+
+}
 module.exports.errors = errors
 
 module.exports.contentType = str => {
-    let t, c, _s
+    let t, c
 
     if(str) {
-        const a = str.replace(';', ' ').split(' ').filter(Boolean)
-        if(a.length >= 1) t = a[0].trim().toLowerCase()
-        if(a.length == 2) c = (_s = a[1].split('=')).length == 1 ? _s[0].trim().toLowerCase() : _s[1].trim().toLowerCase()
+        const _a = str.replace(';', ' ').split(' ').filter(Boolean)
+        if(_a.length >= 1) t = _a[0].trim().toLowerCase()
+        if(_a.length == 2) c = (_s = _a[1].split('=')).length == 1 ? _s[0].trim().toLowerCase() : _s[1].trim().toLowerCase()
     }
 
-    t = t ? t : 'application/json' // TODO: Media Type
-
-    switch (c) {
+    switch (c) { // TODO: more charsets
         case undefined:
             c = 'utf8'
             break
@@ -39,51 +39,58 @@ module.exports.contentType = str => {
     }
 }
 
-module.exports.contentEncoding = async (input, encoding, callback) => {
+module.exports.urlParser = url => {
+    const _i = (_p = url.indexOf('?')) > 0 ? _p : url.length
+    const urn = (_u = url.substring(0, _i).split('/').filter(Boolean)).length ? _u : ['/']
+    const urlParam = (query = url.substring(_i + 1)).length
+        ? decodeURIComponent(query).split('&').filter(Boolean)
+        .reduce((a, c) => {
+            const _z = c.split('=')
+            a[_z[0]] = _z[1]
+            return a
+        }, {})
+        : null
 
-    if (encoding === undefined) {
-        await pipeline(input, callback).catch(e => { errors(500, 'contentEncoding', e) })
+    return { urn, urlParam }
+}
 
-    } else if (encoding.includes('gzip')) {
-        await pipeline(input, zlib.createGzip(), callback).catch(e => { errors(500, 'contentEncoding createGzip', e) })
+module.exports.acceptEncoding = str => {
+    // https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4
+    if(!str) return null
 
-    } else if (encoding.includes('deflate')) {
-        await pipeline(input, zlib.createDeflate(), callback).catch(e => { errors(500, 'contentEncoding createDeflate', e) })
+    let _a = str
+        .split(',')
+        .filter(Boolean)
+        .reduce((a, c) => {
+            a.push(c.split(';').map(v => {
+                return (_v = v.split('=')).length == 1 ? _v[0].trim().toLowerCase() : _v[1].trim().toLowerCase()
+            }))
+            return a
+        }, [])
 
-    } else if (encoding.includes('br')) {
-        await pipeline(input, zlib.createBrotliCompress(), callback).catch(e => { errors(500, 'contentEncoding createBrotliCompress', e) })
+    // "identity;q=0" or "*;q=0"
+    if(_a.length == 1 & _a[0][0] == '*' & _a[0][1] == '0') return null
+    if(_a.length == 1 & _a[0][0] == 'identity' & _a[0][1] == '0') return null
 
-    }
+    _a = _a
+        .map(v => { if (['gzip', 'deflate', 'br', '*'].includes(v[0])) return v })
+        .filter(Boolean)
+        .sort((a, b) => {
+            return a[1] ? a[1] < b[1] ? 1 : -1 : 0
+        })
+
+    return _a[0][0] == '*' ? 'gzip' : _a[0][0]
 
 }
 
-module.exports.contentDecoding = async (input, decoding, callback) => {
-
-    if (decoding === undefined) {
-        await pipeline(input, callback).catch(e => { errors(500, 'contentDecoding', e) })
-
-    } else if (decoding.includes('gzip')) {
-        await pipeline(input, zlib.createGunzip(), callback).catch(e => { errors(500, 'contentDecoding createGunzip', e) })
-
-    } else if (decoding.includes('deflate')) {
-        await pipeline(input, zlib.createInflate(), callback).catch(e => { errors(500, 'contentDecoding createInflate', e) })
-
-    } else if (decoding.includes('br')) {
-        await pipeline(input, zlib.createBrotliDecompress(), callback).catch(e => { errors(500, 'contentDecoding createBrotliDecompress', e) })
-
-    }
-
+module.exports.contentDecoders = {
+    gzip: zlib.createGunzip,
+    deflate: zlib.createInflate,
+    br: zlib.createBrotliDecompress,
 }
 
-module.exports.createReadable = async (txt, callback) => {
-
-    const str = new Readable({
-        read() {
-            this.push(txt)
-            this.push(null)
-
-        }
-    })
-
-    await pipeline(str, callback).catch(e => { errors(500, 'readableStream', e) })
+module.exports.contentEncoders = {
+    gzip: zlib.createGzip,
+    deflate: zlib.createDeflate,
+    br: zlib.createBrotliCompress,
 }
