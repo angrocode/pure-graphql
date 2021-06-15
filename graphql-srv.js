@@ -1,12 +1,12 @@
 
 const graphql = require('graphql')
 const { PassThrough } = require('stream')
-const {contentType, errors} = require('./utils')
+const {contentType, errors, eJSON} = require('./utils')
 
 const schema = `
     type Query {
         """getting the current milliseconds"""
-        ping: Int
+        ping(par: Int): Int
     }
 `
 const resolver = {
@@ -16,34 +16,71 @@ const resolver = {
 const options = {
     schema: graphql.buildSchema(schema),
     rootValue: resolver,
-    context: {}
+    context: {},
+    fieldResolver: null,
+    typeResolver: null
 }
+
 
 module.exports = async reqData => {
 
-    const {urn, method, headers, urlParam, reqStream} = reqData
+    const { method, headers, urlParam, reqStream } = reqData
 
-    const typeInfo = (_o = contentType(headers['content-type'])).type === undefined ? { ..._o, type: 'application/json' } : _o
+    const typeInfo = (_o = contentType(headers['content-type'])).type === null ? { ..._o, type: 'application/json' } : _o
     if (!['application/json', 'application/graphql'].includes(typeInfo.type)) errors(415, `Unsupported Media Type "${typeInfo.type}"`)
     if (!['utf8', 'utf16le'].includes(typeInfo.charset)) errors(415, `Unsupported Media Type Charset "${typeInfo.charset}". Only 'utf-8', 'utf-16'`)
     // https://datatracker.ietf.org/doc/html/rfc7159#section-8.1
     // https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings
 
-    let _req
+    let req
     if (['GET'].includes(method)) {
-        _req = (_u = urlParam).variables === '{}' ? { ..._u, variables: {}} : _u
+        if (!urlParam) return eJSON(400)
+        req = { ...urlParam, variables: JSON.parse(urlParam.variables)}
     } else {
         const _b = []
         for await (const _c of reqStream) _b.push(_c)
+        if (!_b.length) return eJSON(400)
         const _e = await Buffer.concat(_b).toString(typeInfo.charset)
-        _req = JSON.parse(_e)
+        req = JSON.parse(_e)
     }
 
-    const { query, variables, operationName } = _req
+    if (!'query' in req) return eJSON('"query" not found in the request')
+    if (!'variables' in req) return eJSON('"variables" not found in the request')
+    if (!'operationName' in req) return eJSON('"operationName" not found in the request')
 
-    const schema = options.schema
-    const rootValue = options.rootValue
-    const context = options.context
+
+    let result
+    try {
+        const result = await graphql.execute({
+            schema: options.schema,
+            document: graphql.parse(req.query, {noLocation: true}),
+            rootValue: options.rootValue,
+            contextValue: options.context,
+            variableValues: req.variables,
+            operationName: req.operationName,
+            fieldResolver: options.fieldResolver,
+            typeResolver: options.typeResolver
+        })
+    } catch (e) {
+        eJSON(`GraphQL execution context error: ${e}`)
+    }
+
+    // if (!'errors' in result) return eJSON('GraphQL execute error', result.errors)
+
+
+    return {
+        code: 200,
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        encode: false,
+        resStream: new PassThrough().end(Buffer.from(JSON.stringify(result), typeInfo.charset))
+        // resStream: new PassThrough().end(Buffer.from('{"data":{"ping":' + new Date().getMilliseconds() + '}}', 'utf8'))
+    }
+
+}
+
+/*
 
     // Validate Schema
     const schemaValidationErrors = graphql.validateSchema(schema)
@@ -52,7 +89,7 @@ module.exports = async reqData => {
     }
 
     // Parse source to AST, reporting any syntax error
-    const documentAST = graphql.parse(new graphql.Source(query, 'GraphQL request'))
+    const documentAST = graphql.parse(query, {noLocation: true})
 
     //Only query operations are allowed on GET requests.
     if (method === 'GET') {
@@ -90,16 +127,56 @@ module.exports = async reqData => {
 
     // if (errorAcc.length) result.errors = errorAcc // TODO: formatted errors
 
-    const code = 200
-
     return {
-        code,
+        code: 200,
         headers: {
             'Content-Type': 'application/json'
         },
-        resStream: new PassThrough().end(Buffer.from(JSON.stringify(result), typeInfo.charset))
+        // resStream: new PassThrough().end(Buffer.from(JSON.stringify(result), typeInfo.charset))
+        resStream: new PassThrough().end(Buffer.from('{"data":{"ping":' + new Date().getMilliseconds() + '}}', typeInfo.charset))
     }
 
     // '{"data":{"ping":' + new Date().getMilliseconds() + '}}'
 
 }
+
+ */
+
+/*
+validateSchema
+parse
+Source
+getOperationAST
+validate
+execute
+
+  formatError,
+  getOperationAST,
+  GraphQLSchema,
+  parse,
+  print,
+  validate,
+  validateSchema,
+  ValidationRule,
+
+DocumentNode,
+ExecutionArgs,
+ExecutionResult,
+formatError,
+FormattedExecutionResult,
+getOperationAST,
+GraphQLArgs,
+GraphQLSchema,
+parse,
+print,
+SubscriptionArgs,
+validate,
+validateSchema,
+ValidationRule,
+ */
+
+// https://dgraph.io/docs/graphql/api/requests/
+
+// https://graphql.org/graphql-js/utilities/
+
+// https://github.com/hoangvvo/benzene/blob/main/packages/extra/src/errors.ts
