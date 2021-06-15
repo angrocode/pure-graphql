@@ -97,21 +97,6 @@ module.exports.contentEncoders = {
     br: zlib.createBrotliCompress,
 }
 
-
-module.exports.favicon = async reqData => {
-    const ico = `iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA
-    7DAcdvqGQAAAHDSURBVDhPY2TAAtZdb2Nk+PfHCcg0AeL/QHyWgYllX5BmFYiNApigNBysu9okDdTc9P//P8Z7b09duPv25Js//35xAcXqwXJoAMUFa
-    683szH++1/9+uv97k8/Xq4HCrkA8U8gli+12/YSaEAzIxNDc6Bm3S+QehBAcQFQcziQmv/5x0tuIK0NFmRgWALSDGEyzv7/jyEawoYAFigNAxJB2nUP
-    QIxF5/I02Vi4XrIxcxr2HWFL/Pvvl8e9t8eylIQtRcEqoQDdAObuQ16qQHruu+9PHsgK6LMDQ80IGI7zQJL/GRjngtSA2DCAHogsPKxCb4C00e+/P2K
-    ffbx2/9//v/Z///1+DhT7z8rM8RhI4zVghTifWgSQzgXifz/+fN4aqtN0CMguBeJeOQEDWyC9HIjhAMUAoP/vAKnvysIWv4EBpgF0fg1IXIPLbBlQ7D
-    aQ+Reo5i5IDAawJ6SrTXZAyoGDhfcfw///LD/+fgFF5VGgZpBriAefv3yq+ATEUC5WgJESSQUDbwDWQOw+5A1KPJOYGVmUgUoY//7/fRNIF5TabT0PV
-    QIHOFzwH2gAw+G///8sAGqeD2QfA4oZgqVQAAMDANfApeNG0BOMAAAAAElFTkSuQmCC`
-
-    return { code: 200, headers: { 'Content-Type': 'image/x-icon' }, encode: false,
-        resStream: new PassThrough().end(Buffer.from(ico, 'base64'))
-    }
-}
-
 module.exports.eHTML = async code => {
     const body = `
     <!DOCTYPE html>
@@ -142,21 +127,27 @@ module.exports.eHTML = async code => {
 
 module.exports.eJSON = async data => {
 
-    const body = typeof data !== 'number' ? data : {
-        errors: [
-            {
-                message: STATUS_CODES[data],
-                originalError: {
-                    name: data,
-                    message: STATUS_CODES[data]
-                }
-            }
-        ]
+    const body = {
+        errors: typeof data !== 'number' ? data : [ { message: STATUS_CODES[data] } ]
     }
 
     const code = typeof data !== 'number' ? 500 : data
 
     return { code, headers: { 'Content-Type': 'application/json' },
         resStream: new PassThrough().end(Buffer.from(JSON.stringify(body), 'utf8'))
+    }
+}
+
+module.exports.favicon = async reqData => {
+    const ico = `iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA
+    7DAcdvqGQAAAHDSURBVDhPY2TAAtZdb2Nk+PfHCcg0AeL/QHyWgYllX5BmFYiNApigNBysu9okDdTc9P//P8Z7b09duPv25Js//35xAcXqwXJoAMUFa
+    683szH++1/9+uv97k8/Xq4HCrkA8U8gli+12/YSaEAzIxNDc6Bm3S+QehBAcQFQcziQmv/5x0tuIK0NFmRgWALSDGEyzv7/jyEawoYAFigNAxJB2nUP
+    QIxF5/I02Vi4XrIxcxr2HWFL/Pvvl8e9t8eylIQtRcEqoQDdAObuQ16qQHruu+9PHsgK6LMDQ80IGI7zQJL/GRjngtSA2DCAHogsPKxCb4C00e+/P2K
+    ffbx2/9//v/Z///1+DhT7z8rM8RhI4zVghTifWgSQzgXifz/+fN4aqtN0CMguBeJeOQEDWyC9HIjhAMUAoP/vAKnvysIWv4EBpgF0fg1IXIPLbBlQ7D
+    aQ+Reo5i5IDAawJ6SrTXZAyoGDhfcfw///LD/+fgFF5VGgZpBriAefv3yq+ATEUC5WgJESSQUDbwDWQOw+5A1KPJOYGVmUgUoY//7/fRNIF5TabT0PV
+    QIHOFzwH2gAw+G///8sAGqeD2QfA4oZgqVQAAMDANfApeNG0BOMAAAAAElFTkSuQmCC`
+
+    return { code: 200, headers: { 'Content-Type': 'image/x-icon' }, encode: false,
+        resStream: new PassThrough().end(Buffer.from(ico, 'base64'))
     }
 }
