@@ -1,12 +1,13 @@
 
-const graphql = require('graphql')
+const { buildSchema, parse, execute } = require('graphql')
+const { validate, specifiedRules, TypeInfo } = require('graphql')
 const { PassThrough } = require('stream')
-const {contentType, errors, eJSON} = require('./utils')
+const { contentType, errors, eJSON } = require('./utils')
 
 const schema = `
     type Query {
         """getting the current milliseconds"""
-        ping(par: Int): Int
+        ping: Int
     }
 `
 const resolver = {
@@ -14,7 +15,7 @@ const resolver = {
 }
 
 const options = {
-    schema: graphql.buildSchema(schema),
+    schema: buildSchema(schema),
     rootValue: resolver,
     context: {},
     fieldResolver: null,
@@ -44,29 +45,21 @@ module.exports = async reqData => {
         req = JSON.parse(_e)
     }
 
-    if (!'query' in req) return eJSON('"query" not found in the request')
-    if (!'variables' in req) return eJSON('"variables" not found in the request')
-    if (!'operationName' in req) return eJSON('"operationName" not found in the request')
+    const documentAST = parse(req.query, {noLocation: true})
 
+    const reqError = validate(options.schema, documentAST, specifiedRules)
+    if (reqError.length) return eJSON(reqError)
 
-    let result
-    try {
-        const result = await graphql.execute({
-            schema: options.schema,
-            document: graphql.parse(req.query, {noLocation: true}),
-            rootValue: options.rootValue,
-            contextValue: options.context,
-            variableValues: req.variables,
-            operationName: req.operationName,
-            fieldResolver: options.fieldResolver,
-            typeResolver: options.typeResolver
-        })
-    } catch (e) {
-        eJSON(`GraphQL execution context error: ${e}`)
-    }
-
-    // if (!'errors' in result) return eJSON('GraphQL execute error', result.errors)
-
+    const result = await execute({
+        schema: options.schema,
+        document: documentAST,
+        rootValue: options.rootValue,
+        contextValue: options.context,
+        variableValues: req.variables,
+        operationName: req.operationName,
+        fieldResolver: options.fieldResolver,
+        typeResolver: options.typeResolver
+    })
 
     return {
         code: 200,
