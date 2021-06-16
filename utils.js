@@ -3,16 +3,16 @@ const zlib = require('zlib')
 const { STATUS_CODES } = require('http')
 const { PassThrough } = require('stream')
 
-// globalThis.errorAcc = []
-errors = (code, msg, error) => {
-    console.log(`${code}: ${STATUS_CODES[code]}`)
-    console.log(`=== ${msg} ===`)
-    console.log(error ? error : '')
 
-    // errorAcc.push({ code: code, srv_message: STATUS_CODES[code], message: msg })
+logger = (code, comment, data) => {
+
+    let out = code + ': ' + STATUS_CODES[code] + '\n === ' + comment + ' === \n'
+    if (data) out + '\n' + data + '\n'
+
+    process.stdout.write(out)
 
 }
-module.exports.errors = errors
+module.exports.logger = logger
 
 module.exports.contentType = str => {
     let t = null, c = null
@@ -97,7 +97,9 @@ module.exports.contentEncoders = {
     br: zlib.createBrotliCompress,
 }
 
-module.exports.eHTML = async code => {
+module.exports.eHTML = async (code, comment, data) => {
+    logger(code, comment, data)
+
     const body = `
     <!DOCTYPE html>
     <html lang="en">
@@ -125,15 +127,16 @@ module.exports.eHTML = async code => {
     }
 }
 
-module.exports.eJSON = async data => {
+module.exports.eJSON = async (code, comment, data) => {
+    logger(code, comment, data)
 
     const body = {
-        errors: typeof data !== 'number' ? data : [ { message: STATUS_CODES[data] } ]
+        errors: [ { message: `[${code}] ${STATUS_CODES[code]}` + (comment ? ': ' + comment : '') } ]
     }
 
-    const code = typeof data !== 'number' ? 500 : data
+    if (data) body.errors = [...body.errors, ...data]
 
-    return { code, headers: { 'Content-Type': 'application/json' },
+    return { code, headers: { 'Content-Type': 'application/json' }, encode: true,
         resStream: new PassThrough().end(Buffer.from(JSON.stringify(body), 'utf8'))
     }
 }

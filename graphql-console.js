@@ -22,7 +22,7 @@ const body = `
 `
 
 const { PassThrough } = require('stream')
-const {contentType, errors} = require('./utils')
+const { contentType } = require('./utils')
 
 module.exports = async reqData => {
 
@@ -30,10 +30,8 @@ module.exports = async reqData => {
 
     const typeInfo = contentType(headers['content-type'])
 
-    const code = 200
-
     return {
-        code,
+        code: 200,
         headers: {
             'Content-Type': 'text/html'
         },

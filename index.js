@@ -2,7 +2,8 @@
 const { createServer: httpServer } = require('http')
 const { PassThrough } = require('stream')
 const { pipeline } = require('stream/promises')
-const { urlParser, getEncoding, contentDecoders, contentEncoders, eHTML } = require('./utils')
+const { eHTML, logger } = require('./utils')
+const { urlParser, getEncoding, contentDecoders, contentEncoders } = require('./utils')
 
 
 const routing = {
@@ -20,9 +21,9 @@ httpServer(async (req, res) => {
 
     const reqStream = new PassThrough()
     const de = decoding ? contentDecoders[decoding] : PassThrough
-    await pipeline(req, de(), reqStream)
+    await pipeline(req, de(), reqStream).catch(e => logger(500, 'Request pipeline', e))
 
-    const resData = !(_run = routing[urn.toString()]) ? eHTML(404) : _run({
+    const resData = !(_run = routing[urn.toString()]) ? eHTML(404, 'Not found rout') : _run({
         urn,
         method: req.method,
         headers: req.headers,
@@ -36,12 +37,12 @@ httpServer(async (req, res) => {
         ..._headers,
         'Accept-Encoding': 'gzip, deflate, br'
     }
-    encoding && encode ? headers['Content-Encoding'] = encoding : ''
+    encode && encoding ? headers['Content-Encoding'] = encoding : ''
 
     res.writeHead(code, headers)
 
-    const en = encoding && encode ? contentEncoders[encoding] : PassThrough
-    await pipeline(resStream, en(), res)
+    const en = encode && encoding ? contentEncoders[encoding] : PassThrough
+    await pipeline(resStream, en(), res).catch(e => logger(500, 'Response pipeline', e))
 
 
 }).listen(80, 'localhost', e => {
