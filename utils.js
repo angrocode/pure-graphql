@@ -4,12 +4,10 @@ const { STATUS_CODES } = require('http')
 const { PassThrough } = require('stream')
 
 
-logger = (code, comment, data) => {
+logger = async (code, comment, data) => {
 
-    let out = code + ': ' + STATUS_CODES[code] + '\n === ' + comment + ' === \n'
-    if (data) out + '\n' + data + '\n'
-
-    process.stdout.write(out)
+    let out = code + ': ' + STATUS_CODES[code] + '\n === ' + comment + ' === \n' + (data ? data : '')
+    process.stdout.write(out + '\n')
 
 }
 module.exports.logger = logger
@@ -118,6 +116,32 @@ module.exports.eHTML = async (code, comment, data) => {
         >
             ${STATUS_CODES[code]}
         </div>
+        ${
+        !comment ? '' :
+            `<div style="
+            display: flex;
+            justify-content: center;
+            font-size: large;
+            font-weight: bold;
+            color: olivedrab;
+            "
+            >
+                ${comment.toString()}
+            </div>`
+        }
+        ${
+        !data ? '' :
+            `<div style="
+            display: flex;
+            justify-content: center;
+            font-size: large;
+            font-weight: bold;
+            color: olivedrab;
+            "
+            >
+                ${data.toString()}
+            </div>`
+        }
     </body>
     </html>
     `
@@ -134,14 +158,14 @@ module.exports.eJSON = async (code, comment, data) => {
         errors: [ { message: `[${code}] ${STATUS_CODES[code]}` + (comment ? ': ' + comment : '') } ]
     }
 
-    if (data) body.errors = [...body.errors, ...data]
+    if (data) body.errors = [...body.errors, ...(Array.isArray(data) ? data : [data])]
 
     return { code, headers: { 'Content-Type': 'application/json' }, encode: true,
-        resStream: new PassThrough().end(Buffer.from(JSON.stringify(body), 'utf8'))
+        resStream: new PassThrough().end(Buffer.from(JSON.stringify(body, (k, v) => k === 'message' ? v.replace(/"/g, "'") : v), 'utf8'))
     }
 }
 
-module.exports.favicon = async reqData => {
+module.exports.favicon = async () => {
     const ico = `iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA
     7DAcdvqGQAAAHDSURBVDhPY2TAAtZdb2Nk+PfHCcg0AeL/QHyWgYllX5BmFYiNApigNBysu9okDdTc9P//P8Z7b09duPv25Js//35xAcXqwXJoAMUFa
     683szH++1/9+uv97k8/Xq4HCrkA8U8gli+12/YSaEAzIxNDc6Bm3S+QehBAcQFQcziQmv/5x0tuIK0NFmRgWALSDGEyzv7/jyEawoYAFigNAxJB2nUP

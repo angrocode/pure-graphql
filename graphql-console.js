@@ -33,7 +33,7 @@ module.exports = async reqData => {
     return {
         code: 200,
         headers: {
-            'Content-Type': 'text/html'
+            'Content-Type': `text/html; charset=${typeInfo.charset}`
         },
         encode: true,
         resStream: new PassThrough().end(Buffer.from(body, typeInfo.charset))

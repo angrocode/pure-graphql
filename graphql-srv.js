@@ -8,10 +8,10 @@ const { schema, resolver } = require('./gql')
 let _s
 try {
     _s = buildSchema(schema)
-} catch (e) {
-    logger(500, 'Build schema', e)
+} catch (_e) {
+    logger(500, 'Build schema', _e)
 }
-;(_e = validateSchema(_s)).length ? logger(500, 'Validate schema', _e) : null
+if ((_e = validateSchema(_s)).length) logger(500, 'Validate schema', _e)
 
 const options = {
     schema: _s,
@@ -41,21 +41,20 @@ module.exports = async reqData => {
         const _b = []
         for await (const _c of reqStream) _b.push(_c)
         if (!_b.length) return eJSON(400, 'The request cannot be empty')
-        const _e = await Buffer.concat(_b).toString(typeInfo.charset)
-        req = JSON.parse(_e)
+        const _s = await Buffer.concat(_b).toString(typeInfo.charset)
+        req = JSON.parse(_s)
     }
 
     try {
         documentAST = parse(req.query, {noLocation: true})
-    } catch (e) {
-        return eJSON(500, 'Query parse', e)
+    } catch (_e) {
+        return eJSON(500, 'Query parse', _e)
     }
 
     try {
-        const reqError = validate(options.schema, documentAST, specifiedRules)
-        if (reqError.length) return eJSON(500, 'Query validate', reqError)
-    } catch (e) {
-        return eJSON(500, 'Query validate', e)
+        if ((_e = validate(options.schema, documentAST, specifiedRules)).length) return eJSON(500, 'Query validate', _e)
+    } catch (_e) {
+        return eJSON(500, 'Query validate', _e)
     }
 
     try {
@@ -69,14 +68,14 @@ module.exports = async reqData => {
             fieldResolver: options.fieldResolver,
             typeResolver: options.typeResolver
         })
-    } catch (e) {
-        return eJSON(500, 'Query execute', e)
+    } catch (_e) {
+        return eJSON(500, 'Query execute', _e)
     }
 
     return {
         code: 200,
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': `application/json; charset=${typeInfo.charset}`
         },
         encode: true,
         resStream: new PassThrough().end(Buffer.from(JSON.stringify(result), typeInfo.charset))

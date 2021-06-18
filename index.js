@@ -20,10 +20,10 @@ httpServer(async (req, res) => {
     const encoding = getEncoding(req.headers['accept-encoding'])
 
     const reqStream = new PassThrough()
-    const de = decoding ? contentDecoders[decoding] : PassThrough
-    await pipeline(req, de(), reqStream).catch(e => logger(500, 'Request pipeline', e))
+    const _de = decoding ? contentDecoders[decoding] : PassThrough
+    await pipeline(req, _de(), reqStream).catch(_e => logger(500, 'Request pipeline', _e))
 
-    const resData = !(_run = routing[urn.toString()]) ? eHTML(404, 'Not found rout') : _run({
+    const resData = !(_run = routing[urn.toString()]) ? eHTML(404, 'Not found rout', urn.toString()) : _run({
         urn,
         method: req.method,
         headers: req.headers,
@@ -41,8 +41,8 @@ httpServer(async (req, res) => {
 
     res.writeHead(code, headers)
 
-    const en = encode && encoding ? contentEncoders[encoding] : PassThrough
-    await pipeline(resStream, en(), res).catch(e => logger(500, 'Response pipeline', e))
+    const _en = encode && encoding ? contentEncoders[encoding] : PassThrough
+    await pipeline(resStream, _en(), res).catch(_e => logger(500, 'Response pipeline', _e))
 
 
 }).listen(80, 'localhost', e => {
