@@ -39,16 +39,15 @@ module.exports.contentType = str => {
 }
 
 module.exports.urlParser = url => {
+    let urlParam
     const _i = (_p = url.indexOf('?')) > 0 ? _p : url.length
     const urn = (_u = url.substring(0, _i).split('/').filter(Boolean)).length ? _u : ['/']
-    const urlParam = (_q = url.substring(_i + 1)).length
-        ? decodeURIComponent(_q).split('&').filter(Boolean)
-        .reduce((a, c) => {
-            const _z = c.split('=')
-            a[_z[0]] = _z[1]
-            return a
-        }, {})
-        : null
+    if ((_q = url.substring(_i + 1)).length == 0) {
+        return { urn, urlParam: null }
+    } else {
+        const body = decodeURIComponent(_q).split('&').filter(Boolean)
+        urlParam = body.length == 1 ? body[0] : Object.fromEntries(body.map(c => c.split('=')))
+    }
 
     return { urn, urlParam }
 }
