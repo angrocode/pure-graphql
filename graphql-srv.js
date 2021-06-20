@@ -36,13 +36,21 @@ module.exports = async reqData => {
 
     if (['GET'].includes(method)) {
         if (!urlParam) return eJSON(400, 'The request cannot be empty')
-        req = { ...urlParam, variables: JSON.parse(urlParam.variables)}
+        if (typeInfo.type === 'application/graphql'){
+            req = { query: urlParam, variables: {}, operationName: ''}
+        } else {
+            req = {...urlParam, variables: JSON.parse(urlParam.variables)}
+        }
     } else {
         const _b = []
         for await (const _c of reqStream) _b.push(_c)
         if (!_b.length) return eJSON(400, 'The request cannot be empty')
         const _s = await Buffer.concat(_b).toString(typeInfo.charset)
-        req = JSON.parse(_s)
+        if (typeInfo.type === 'application/graphql'){
+            req = { query: _s, variables: {}, operationName: ''}
+        } else {
+            req = JSON.parse(_s)
+        }
     }
 
     try {
