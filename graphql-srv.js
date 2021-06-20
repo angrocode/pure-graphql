@@ -2,7 +2,7 @@
 const { buildSchema, parse, execute } = require('graphql')
 const { validateSchema, validate, specifiedRules } = require('graphql')
 const { PassThrough } = require('stream')
-const { contentType, eJSON, logger } = require('./utils')
+const { contentType, eJSON, logger, bodyParser } = require('./utils')
 const { schema, resolver } = require('./gql')
 
 let _s
@@ -36,8 +36,8 @@ module.exports = async reqData => {
 
     if (['GET'].includes(method)) {
         if (!urlParam) return eJSON(400, 'The request cannot be empty')
-        if (typeInfo.type === 'application/graphql'){
-            req = { query: urlParam, variables: {}, operationName: ''}
+        if (typeof urlParam === 'string'){
+            req = { query: urlParam, variables: {}}
         } else {
             req = {...urlParam, variables: JSON.parse(urlParam.variables)}
         }
@@ -46,11 +46,12 @@ module.exports = async reqData => {
         for await (const _c of reqStream) _b.push(_c)
         if (!_b.length) return eJSON(400, 'The request cannot be empty')
         const _s = await Buffer.concat(_b).toString(typeInfo.charset)
-        if (typeInfo.type === 'application/graphql'){
-            req = { query: _s, variables: {}, operationName: ''}
-        } else {
+        try {
             req = JSON.parse(_s)
+        } catch (e) {
+            req = { query: _s, variables: {}}
         }
+
     }
 
     try {
