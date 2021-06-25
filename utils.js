@@ -44,8 +44,8 @@ module.exports.urlParser = url => {
     if ((_q = url.substring(_i + 1)).length == 0) {
         return { urn, urlParam: null }
     } else {
-        const body = decodeURIComponent(_q).split('&').filter(Boolean)
-        return { urn, urlParam: body.length == 1 ? body[0] : Object.fromEntries(body.map(c => c.split('='))) }
+        const _b = decodeURIComponent(_q).split('&').filter(Boolean).map(c => c.split('='))
+        return { urn, urlParam: _b.length == 1 && _b[0].length == 1 ? _b[0][0] :  Object.fromEntries(_b) }
     }
 
 }
