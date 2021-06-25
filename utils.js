@@ -13,7 +13,7 @@ logger = async (code, comment, data) => {
 module.exports.logger = logger
 
 module.exports.contentType = str => {
-    let t = null, c = null
+    let t = '', c = ''
 
     if(str) {
         const _a = str.replace(';', ' ').split(' ').filter(Boolean)
@@ -22,7 +22,7 @@ module.exports.contentType = str => {
     }
 
     switch (c) { // TODO: more charsets
-        case null:
+        case '':
             c = 'utf8'
             break
         case 'utf-8':
@@ -39,47 +39,24 @@ module.exports.contentType = str => {
 }
 
 module.exports.urlParser = url => {
-    let urlParam
     const _i = (_p = url.indexOf('?')) > 0 ? _p : url.length
     const urn = (_u = url.substring(0, _i).split('/').filter(Boolean)).length ? _u : ['/']
     if ((_q = url.substring(_i + 1)).length == 0) {
         return { urn, urlParam: null }
     } else {
-        const _b = decodeURIComponent(_q).split('&').filter(Boolean).map(c => c.split('='))
-        urlParam = _b.length == 1 && _b[0].length == 1 ? _b[0][0] :  Object.fromEntries(_b)
+        const body = decodeURIComponent(_q).split('&').filter(Boolean)
+        return { urn, urlParam: body.length == 1 ? body[0] : Object.fromEntries(body.map(c => c.split('='))) }
     }
 
-    return { urn, urlParam }
 }
 
 module.exports.getEncoding = str => {
-    // https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4
-    if(!str) return null
-
-    let _a = str
-        .split(',') // TODO: , => ' '
-        .filter(Boolean)
-        .reduce((a, c) => {
-            a.push(c.split(';').map(v => {
-                return (_v = v.split('=')).length == 1 ? _v[0].trim().toLowerCase() : _v[1].trim().toLowerCase()
-            }))
-            return a
-        }, [])
-
-    // "identity;q=0" or "*;q=0"
-    if(_a.length == 1 && _a[0][0] == 'identity') return null
-    if(_a.length == 1 && (_a[0][0] == '*' && _a[0][1] == '0')) return null
-    if(_a.length == 1 && (_a[0][0] == 'identity' && _a[0][1] == '0')) return null
-
-    _a = _a
-        .map(v => { if (['gzip', 'deflate', 'br', '*'].includes(v[0])) return v })
-        .filter(Boolean)
-        .sort((a, b) => {
-            return a[1] ? a[1] < b[1] ? 1 : -1 : 0
-        })
-
-    return _a[0][0] == '*' ? 'gzip' : _a[0][0]
-
+    if (str.includes('identity')) return null
+    if (str.includes('*')) return 'br'
+    if (str.includes('br')) return 'br'
+    if (str.includes('gzip')) return 'gzip'
+    if (str.includes('deflate')) return 'deflate'
+    return null
 }
 
 module.exports.contentDecoders = {
