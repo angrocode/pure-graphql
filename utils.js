@@ -4,21 +4,21 @@ const { STATUS_CODES } = require('http')
 const { PassThrough } = require('stream')
 
 
-logger = async (code, comment, data) => {
+const logger = (code, comment, data) => {
 
-    let out = code + ': ' + STATUS_CODES[code] + '\n === ' + comment + ' === \n' + (data ? data : '')
+    const out = code + ': ' + STATUS_CODES[code] + '\n === ' + comment + ' === \n' + (data ? data : '')
     process.stdout.write(out + '\n')
 
 }
 module.exports.logger = logger
 
 module.exports.contentType = str => {
-    let t = '', c = ''
+    let t = '', c = '', s
 
     if(str) {
         const _a = str.replace(';', ' ').split(' ').filter(Boolean)
         if(_a.length >= 1) t = _a[0].trim().toLowerCase()
-        if(_a.length == 2) c = (_s = _a[1].split('=')).length == 1 ? _s[0].trim().toLowerCase() : _s[1].trim().toLowerCase()
+        if(_a.length === 2) c = (s = _a[1].split('=')).length === 1 ? s[0].trim().toLowerCase() : s[1].trim().toLowerCase()
     }
 
     switch (c) { // TODO: more charsets
@@ -39,13 +39,15 @@ module.exports.contentType = str => {
 }
 
 module.exports.urlParser = url => {
-    const _i = (_p = url.indexOf('?')) > 0 ? _p : url.length
-    const urn = (_u = url.substring(0, _i).split('/').filter(Boolean)).length ? _u : ['/']
-    if ((_q = url.substring(_i + 1)).length == 0) {
+    let p, u, q
+
+    const i = (p = url.indexOf('?')) > 0 ? p : url.length
+    const urn = (u = url.substring(0, i).split('/').filter(Boolean)).length ? u : ['/']
+    if ((q = url.substring(i + 1)).length === 0) {
         return { urn, urlParam: null }
     } else {
-        const _b = decodeURIComponent(_q).split('&').filter(Boolean).map(c => c.split('='))
-        return { urn, urlParam: _b.length == 1 && _b[0].length == 1 ? _b[0][0] :  Object.fromEntries(_b) }
+        const b = decodeURIComponent(q).split('&').filter(Boolean).map(c => c.split('='))
+        return { urn, urlParam: b.length === 1 && b[0].length === 1 ? b[0][0] :  Object.fromEntries(b) }
     }
 
 }

@@ -22,7 +22,7 @@ const body = `
 `
 
 const { PassThrough } = require('stream')
-const { contentType } = require('./utils')
+const { contentType } = require('./utils.js')
 
 module.exports = async reqData => {
 

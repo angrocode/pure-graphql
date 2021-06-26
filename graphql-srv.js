@@ -1,20 +1,22 @@
 
+const { PassThrough } = require('stream')
+
 const { buildSchema, parse, execute } = require('graphql')
 const { validateSchema, validate, specifiedRules } = require('graphql')
-const { PassThrough } = require('stream')
-const { contentType, eJSON, logger, bodyParser } = require('./utils')
-const { schema, resolver } = require('./gql')
 
-let _s
+const { contentType, eJSON, logger } = require('./utils.js')
+const { schema, resolver } = require('./gql/index.js')
+
+let s, e
 try {
-    _s = buildSchema(schema)
-} catch (_e) {
-    logger(500, 'Build schema', _e)
+    s = buildSchema(schema)
+} catch (e) {
+    logger(500, 'Build schema', e)
 }
-if ((_e = validateSchema(_s)).length) logger(500, 'Validate schema', _e)
+if ((e = validateSchema(s)).length) logger(500, 'Validate schema', e)
 
 const options = {
-    schema: _s,
+    schema: s,
     rootValue: resolver,
     context: {},
     fieldResolver: null,
@@ -26,11 +28,11 @@ module.exports = async reqData => {
 
     const { method, headers, urlParam, reqStream } = reqData
 
-    const typeInfo = (_o = contentType(headers['content-type'])).type === null ? { ..._o, type: 'application/json' } : _o
+    const conType = contentType(headers['content-type'])
+    const typeInfo = conType.type === '' ? { charset: conType.charset, type: 'application/json' } : conType
+
     if (!['application/json', 'application/graphql'].includes(typeInfo.type)) return eJSON(415, 'Only application/json, application/graphql')
     if (!['utf8', 'utf16le'].includes(typeInfo.charset)) return eJSON(415, 'Only utf-8, utf-16')
-    // https://datatracker.ietf.org/doc/html/rfc7159#section-8.1
-    // https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings
 
     let req, documentAST, result
 
@@ -41,29 +43,30 @@ module.exports = async reqData => {
         } else {
             req = {...urlParam, variables: JSON.parse(urlParam.variables)}
         }
+
     } else {
-        const _b = []
-        for await (const _c of reqStream) _b.push(_c)
-        if (!_b.length) return eJSON(400, 'The request cannot be empty')
-        const _s = await Buffer.concat(_b).toString(typeInfo.charset)
+        const b = []
+        for await (const c of reqStream) b.push(c)
+        if (!b.length) return eJSON(400, 'The request cannot be empty')
+        const q = await Buffer.concat(b).toString(typeInfo.charset)
         try {
-            req = JSON.parse(_s)
-        } catch (e) {
-            req = { query: _s, variables: {}}
+            req = JSON.parse(q)
+        } catch {
+            req = { query: q, variables: {}}
         }
 
     }
 
     try {
         documentAST = parse(req.query, {noLocation: true})
-    } catch (_e) {
-        return eJSON(500, 'Query parse', _e)
+    } catch (e) {
+        return eJSON(500, 'Query parse', e)
     }
 
     try {
-        if ((_e = validate(options.schema, documentAST, specifiedRules)).length) return eJSON(500, 'Query validate', _e)
-    } catch (_e) {
-        return eJSON(500, 'Query validate', _e)
+        if ((e = validate(options.schema, documentAST, specifiedRules)).length) return eJSON(500, 'Query validate', e)
+    } catch (e) {
+        return eJSON(500, 'Query validate', e)
     }
 
     try {
@@ -77,8 +80,8 @@ module.exports = async reqData => {
             fieldResolver: options.fieldResolver,
             typeResolver: options.typeResolver
         })
-    } catch (_e) {
-        return eJSON(500, 'Query execute', _e)
+    } catch (e) {
+        return eJSON(500, 'Query execute', e)
     }
 
     return {

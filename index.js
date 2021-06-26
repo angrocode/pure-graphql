@@ -1,15 +1,18 @@
 
+
 const { createServer: httpServer } = require('http')
 const { PassThrough } = require('stream')
 const { pipeline } = require('stream/promises')
-const { eHTML, logger } = require('./utils')
-const { urlParser, getEncoding, contentDecoders, contentEncoders } = require('./utils')
+
+const { eHTML, logger } = require('./utils.js')
+const { urlParser, getEncoding, contentDecoders, contentEncoders } = require('./utils.js')
 
 
 const routing = {
-    'favicon.ico': require('./utils').favicon,
-    '/': require('./graphql-console'),
-    'graphql': require('./graphql-srv'),
+    /* eslint-disable node/global-require */
+    'favicon.ico': require('./utils.js').favicon,
+    '/': require('./graphql-console.js'),
+    'graphql': require('./graphql-srv.js'),
     'files,download': '', // routing /files/download
 }
 
@@ -20,10 +23,12 @@ httpServer(async (req, res) => {
     const encoding = getEncoding(req.headers['accept-encoding'])
 
     const reqStream = new PassThrough()
-    const _de = decoding ? contentDecoders[decoding] : PassThrough
-    await pipeline(req, _de(), reqStream).catch(_e => logger(500, 'Request pipeline', _e))
+    const de = decoding ? contentDecoders[decoding] : PassThrough
+    await pipeline(req, de(), reqStream).catch(e => logger(500, 'Request pipeline', e))
 
-    const resData = !(_run = routing[urn.toString()]) ? eHTML(404, 'Not found rout', urn.toString()) : _run({
+    const resData = !routing[urn.toString()]
+        ? eHTML(404, 'Rout', urn.toString())
+        : routing[urn.toString()]({
         urn,
         method: req.method,
         headers: req.headers,
@@ -37,14 +42,14 @@ httpServer(async (req, res) => {
         ..._headers,
         'Accept-Encoding': 'gzip, deflate, br'
     }
-    encode && encoding ? headers['Content-Encoding'] = encoding : ''
+    if (encode && encoding) headers['Content-Encoding'] = encoding
 
     res.writeHead(code, headers)
 
-    const _en = encode && encoding ? contentEncoders[encoding] : PassThrough
-    await pipeline(resStream, _en(), res).catch(_e => logger(500, 'Response pipeline', _e))
+    const en = encode && encoding ? contentEncoders[encoding] : PassThrough
+    await pipeline(resStream, en(), res).catch(e => logger(500, 'Response pipeline', e))
 
 
 }).listen(80, 'localhost', e => {
-    e ? console.log(`HTTP server start error: ${e}`) : console.log(`HTTP server running ...`)
+    e ? logger(500, 'HTTP server start error', e) : logger(200, 'HTTP server running ...')
 })

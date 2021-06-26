@@ -1,5 +1,7 @@
+
 const fs = require('fs')
-const { GraphQLScalarType, GraphQLError, Kind } = require('graphql')
+const { GraphQLScalarType } = require('graphql')
+
 const files = fs.readdirSync(__dirname).filter(f => f.endsWith('.js') & f !== 'index.js')
 
 let schema = `
@@ -20,13 +22,13 @@ let resolver = {
         parseValue: v => new Date(v),
         parseLiteral: ast => new Date(parseInt(ast.value, 10))
     }),
-    time: () => {
-        return new Date()
-    },
-
+    time: () => new Date(),
 }
 
 files.forEach(f => {
+    /* eslint-disable node/global-require */
+    /* eslint-disable import/no-dynamic-require */
+    /* eslint-disable node/no-path-concat */
     schema += require(`${__dirname}/${f}`).schema
     resolver = {...resolver, ...require(`${__dirname}/${f}`).resolver}
 })
